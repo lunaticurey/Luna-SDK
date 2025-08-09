@@ -99,7 +99,7 @@ jobs:
 
     - name: ${{ matrix.platform }} sdk download
       run: |
-          wget ${{ matrix.sdk_url }}
+          wget -q ${{ matrix.sdk_url }}
           file_name=$(echo ${{matrix.sdk_url}} | awk -F/ '{print $NF}')
           mkdir sdk
           if [[ $file_name == *.tar.xz ]]; then
