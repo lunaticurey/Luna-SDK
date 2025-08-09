@@ -104,6 +104,7 @@ jobs:
           wget -q ${{ matrix.sdk_url }}
           file_name=$(echo ${{matrix.sdk_url}} | awk -F/ '{print $NF}')
           mkdir sdk
+          mv -f package-configs/ sdk/package-configs
           if [[ $file_name == *.tar.xz ]]; then
             tar -xJf $file_name -C ./sdk --strip-components=1
           elif [[ $file_name == *.tar.zst ]]; then
@@ -156,6 +157,7 @@ jobs:
           echo "CONFIG_ALL=n" >> .config
           echo "CONFIG_AUTOREMOVE=n" >> .config
           echo "CONFIG_SIGNED_PACKAGES=n" >> .config
+          echo "CONFIG_LUCI_LANG_zh_Hans=y" >> .config
           IFS=',' read -r -a package_cfg <<< "${{ github.event.inputs.config_pkg }}"
           for cfg in "${package_cfg[@]}"; do
           bash $GITHUB_WORKSPACE/opt.sh "$cfg"
@@ -207,7 +209,6 @@ jobs:
       run: |
           cd sdk
           mkdir upload
-
           zip -jr upload/"$WRT_DATE"_packages_ipk_${{ matrix.platform }}.zip bin/packages/*
           touch release.txt
           echo "FIRMWARE=$PWD" >> $GITHUB_ENV
@@ -228,13 +229,12 @@ jobs:
       uses: Mattraks/delete-workflow-runs@main
       continue-on-error: true
       with:
-        retain_days: 6
-        keep_minimum_runs: 9
+        retain_days: 10
+        keep_minimum_runs: 20
 
     - name: 删除旧版本
       uses: dev-drprasad/delete-older-releases@master
       continue-on-error: true
-      if: env.UPLOAD_RELEASE == '1' && !cancelled()
       with:
         keep_latest: 24
         delete_tags: true
