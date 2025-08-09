@@ -172,7 +172,7 @@ jobs:
         echo "date3=$(date +'%m.%d')" >> $GITHUB_ENV
 
     - name: ${{ matrix.platform }} sdk download
-        run: |
+      run: |
           wget ${{ matrix.sdk_url }}
           file_name=$(echo ${{matrix.sdk_url}} | awk -F/ '{print $NF}')
           mkdir sdk
