@@ -202,6 +202,7 @@ jobs:
           for pkg in "${package_array[@]}"; do
           ./scripts/feeds install "$pkg"
           echo "CONFIG_PACKAGE_$pkg=m" >> .config
+          done
           for pkg in "${package_array[@]}"; do
           awk -v pkg="$pkg" '$0 ~ pkg { print }' .config
           done
