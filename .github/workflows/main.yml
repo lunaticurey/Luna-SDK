@@ -156,6 +156,7 @@ jobs:
           echo "CONFIG_ALL=n" >> .config
           echo "CONFIG_AUTOREMOVE=n" >> .config
           echo "CONFIG_SIGNED_PACKAGES=n" >> .config
+          echo "CONFIG_LUCI_LANG_zh_Hans=y" >> .config
           IFS=',' read -r -a package_cfg <<< "${{ github.event.inputs.config_pkg }}"
           for cfg in "${package_cfg[@]}"; do
           bash $GITHUB_WORKSPACE/opt.sh "$cfg"
