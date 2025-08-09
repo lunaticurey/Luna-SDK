@@ -175,8 +175,8 @@ jobs:
           cd sdk
           ls
 
-      - name: ${{ matrix.platform }} feeds configuration packages
-        run: |
+    - name: ${{ matrix.platform }} feeds configuration packages
+      run: |
           cd sdk
           cat > feeds.conf.default << EOF
           src-git lunatic7 https://github.com/lunatickochiya/actionbased-openwrt-packages.git
@@ -221,14 +221,14 @@ jobs:
           make defconfig
 
     - name: ${{ matrix.platform }} download
-        run: |
+      run: |
           cd sdk
           make download -j$(nproc)
           find dl -size -1024c -exec ls -l {} \;
 
     - name: ${{ matrix.platform }} compile
-        id: compile
-        run: |
+      id: compile
+      run: |
           cd sdk
           IFS=',' read -r -a package_array <<< "${{ github.event.inputs.packages }}"
           for package in "${package_array[@]}"; do
@@ -244,10 +244,10 @@ jobs:
 
           echo "status=success" >> $GITHUB_OUTPUT
 
-      - name: Organize ${{ matrix.platform }} files
-        id: organize
-        if: steps.compile.outputs.status == 'success'
-        run: |
+    - name: Organize ${{ matrix.platform }} files
+      id: organize
+      if: steps.compile.outputs.status == 'success'
+      run: |
           cd sdk
           mkdir upload
 
@@ -259,11 +259,11 @@ jobs:
           echo "status=success" >> $GITHUB_OUTPUT
 
     - name: Upload firmware to release
-        uses: softprops/action-gh-release@v2
-        if: steps.info.outputs.status == 'success'
-        env:
+      uses: softprops/action-gh-release@v2
+      if: steps.info.outputs.status == 'success'
+      env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
+      with:
           tag_name: ${{ env.date }}
           body_path: ${{ env.FIRMWARE }}/release.txt
           files: ${{ env.FIRMWARE }}/upload/*
