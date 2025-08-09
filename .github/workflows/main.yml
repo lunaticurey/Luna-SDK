@@ -112,17 +112,22 @@ jobs:
           fi
           cd sdk
           ls
+          git clone https://github.com/lunatickochiya/AP-action package/kochiya
+          cd package/kochiya
+          find . -mindepth 1 ! -path "./package" ! -path "./package/*" -exec rm -rf {} +
+          cd ../..
+          
 
     - name: ${{ matrix.platform }} feeds configuration packages
       run: |
           cd sdk
           cat > feeds.conf.default << EOF
-          src-git lunatic7 https://github.com/lunatickochiya/actionbased-openwrt-packages.git
           src-git base https://github.com/openwrt/openwrt.git;openwrt-${{ matrix.sdk_ver }}
           src-git packages https://github.com/openwrt/packages.git;openwrt-${{ matrix.sdk_ver }}
           src-git luci https://github.com/openwrt/luci.git;openwrt-${{ matrix.sdk_ver }}
           src-git routing https://github.com/openwrt/routing.git;openwrt-${{ matrix.sdk_ver }}
           src-git telephony https://github.com/openwrt/telephony.git;openwrt-${{ matrix.sdk_ver }}
+          src-git lunatic7 https://github.com/lunatickochiya/actionbased-openwrt-packages.git
           EOF
 
 
@@ -176,6 +181,13 @@ jobs:
                   sleep 10s
                   make package/feeds/lunatic7/$package/compile -j$(nproc) V=s
                   echo "-----------compiled $package ---------------"
+                  echo ""
+              fi
+              if [ -d "package/kochiya/package/kochiya/$package" ]; then
+                  echo "-----------begin compile $package ---------------"
+                  sleep 10s
+                  make package/kochiya/package/kochiya/$package/compile -j$(nproc) V=s
+                  echo "-----------compiled kochiya $package ---------------"
                   echo ""
               fi
           done
