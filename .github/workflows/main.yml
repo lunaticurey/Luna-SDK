@@ -202,10 +202,9 @@ jobs:
           mkdir upload
 
           zip -jr upload/packages_ipk_${{ matrix.platform }}.zip bin/packages/*
+          echo "FIRMWARE=$PWD" >> $GITHUB_ENV
           cd ../
           touch release.txt
-
-          echo "FIRMWARE=$PWD" >> $GITHUB_ENV
           echo "status=success" >> $GITHUB_OUTPUT
 
     - name: Upload firmware to release
