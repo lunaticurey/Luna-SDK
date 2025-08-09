@@ -86,18 +86,6 @@ env:
   TZ: Asia/Shanghai
 
 jobs:
-  prepare:
-    runs-on: ubuntu-22.04
-    outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
-    strategy:
-      matrix:
-        include:
-        - rockchip: mpc1917
-        - rockchip: tpm312
-        - rockchip: r08
-        - rockchip: fmx1
-
   build:
     runs-on: Ubuntu-22.04
     name: Build IPK [Luci ${{ matrix.luci_ver }}]
