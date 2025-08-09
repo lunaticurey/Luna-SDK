@@ -1,0 +1,298 @@
+name: SDK Build Ipk
+
+# Fix for broken build: https://github.com/softprops/action-gh-release/issues/236
+permissions:
+  contents: write
+  actions: write
+
+on:
+  repository_dispatch:
+  workflow_dispatch:
+    inputs:
+      MACH:
+        description: 'Choose machine'
+        required: true
+        default: 'mpc1917'
+        type: choice
+        options:
+        - 'tpm312'
+        - 'mpc1917'
+        - 'r08'
+        - 'fmx1'
+      REPO:
+        description: 'Choose repo'
+        required: true
+        default: 'openwrt-24.10'
+        type: choice
+        options:
+        - 'openwrt-24.10'
+        - 'main'
+      SETIP:
+        description: 'Set ip address'
+        default: '192.168.6.1'
+        required: false
+        type: choice
+        options:
+        - '192.168.6.1'
+        - '192.168.7.1'
+        - '192.168.8.1'
+        - '192.168.9.1'
+        - '192.168.10.1'
+        - '192.168.11.1'
+        - '192.168.12.1'
+        - '192.168.16.1'
+        - '192.168.17.1'
+        - '192.168.18.1'
+        - '192.168.19.1'
+        - '192.168.20.1'
+        - '192.168.22.1'
+        - '192.168.33.1'
+        - '192.168.66.1'
+        - '192.168.67.1'
+        - '192.168.77.1'
+        - '192.168.78.1'
+        - '192.168.87.1'
+        - '192.168.88.1'
+        - '192.168.89.1'
+        - '192.168.96.1'
+        - '192.168.99.1'
+        - '192.168.100.1'
+        - '192.168.110.1'
+        - '192.168.120.1'
+        - '192.168.160.1'
+        - '192.168.166.1'
+        - '192.168.167.1'
+        - '192.168.177.1'
+        - '192.168.188.1'
+        - '172.16.0.1'
+        - '172.18.0.1'
+        - '10.0.0.1'
+        - '10.88.0.1'
+      patch_repo:
+        description: 'Use json patch repo true(1) or false(0) See ReadME'
+        required: true
+        default: '{"OPENSSL_3_5": "1", "BCM_FULLCONE": "1", "MAC80211_614": "0", "TRY_BBR_V3": "1"}'
+
+      packages:
+        description: 'OpenWrt packages（example: luci-app-example,luci-app-helloworld）'
+        required: true
+        default: 'luci-app-example,luci-app-example2'
+
+      config_repo:
+        description: 'Use json config repo true(1) or false(0) See ReadME'
+        required: true
+        default: '{"Cache": "1", "UPLOAD_RELEASE": "1", "ALLKMOD": "1"}'
+env:
+  TZ: Asia/Shanghai
+
+jobs:
+  prepare:
+    runs-on: ubuntu-22.04
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    strategy:
+      matrix:
+        include:
+        - rockchip: mpc1917
+        - rockchip: tpm312
+        - rockchip: r08
+        - rockchip: fmx1
+
+  build:
+    runs-on: Ubuntu-22.04
+    name: Build IPK [Luci ${{ matrix.luci_ver }}]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: aarch64_generic
+            sdk_url: https://downloads.openwrt.org/releases/24.10.2/targets/rockchip/armv8/openwrt-sdk-24.10.2-rockchip-armv8_gcc-13.3.0_musl.Linux-x86_64.tar.zst
+            sdk_ver: "24.10"
+
+          - platform: qualcommax
+            sdk_url: https://downloads.openwrt.org/releases/24.10.2/targets/qualcommax/ipq807x/openwrt-sdk-24.10.2-qualcommax-ipq807x_gcc-13.3.0_musl.Linux-x86_64.tar.zst
+            sdk_ver: "24.10"
+
+          - platform: filogic
+            sdk_url: https://downloads.openwrt.org/releases/24.10.2/targets/mediatek/filogic/openwrt-sdk-24.10.2-mediatek-filogic_gcc-13.3.0_musl.Linux-x86_64.tar.zst
+            sdk_ver: "24.10"
+
+          - platform: x86_64
+            sdk_url: https://downloads.openwrt.org/releases/24.10.1/targets/x86/64/openwrt-sdk-24.10.1-x86-64_gcc-13.3.0_musl.Linux-x86_64.tar.zst
+            sdk_ver: "24.10"
+
+          - platform: ath79
+            sdk_url: https://downloads.openwrt.org/releases/24.10.2/targets/ath79/generic/openwrt-sdk-24.10.2-ath79-generic_gcc-13.3.0_musl.Linux-x86_64.tar.zst
+            sdk_ver: "24.10"
+    
+    steps:
+    - name: 检查
+      uses: actions/checkout@main
+
+    - name: 释放Ubuntu磁盘空间
+      uses: endersonmenezes/free-disk-space@v2
+      with:
+        remove_android: true
+        remove_dotnet: true
+        remove_haskell: true
+        remove_tool_cache: true
+        remove_swap: true
+        remove_packages: "azure-cli google-cloud-cli microsoft-edge-stable google-chrome-stable firefox postgresql* temurin-* *llvm* mysql* dotnet-sdk-*"
+        remove_packages_one_command: true
+        remove_folders: "/usr/share/swift /usr/share/miniconda /usr/share/az* /usr/share/glade* /usr/local/lib/node_modules /usr/local/share/chromium /usr/local/share/powershell"
+        testing: false
+
+    - name: 初始化环境
+      env:
+        DEBIAN_FRONTEND: noninteractive
+      run: |
+        sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc
+        sudo -E apt-get -qq update
+        sudo -E apt-get -qq install build-essential clang flex g++ gawk gcc-multilib gettext \
+        git libncurses5-dev libssl-dev python3-distutils python3-pyelftools python3-setuptools \
+        libpython3-dev rsync unzip zlib1g-dev swig aria2 jq subversion qemu-utils ccache rename \
+        libelf-dev device-tree-compiler libgnutls28-dev coccinelle libgmp3-dev libmpc-dev libfuse-dev b43-fwcutter cups-ppdc
+        sudo -E apt-get -qq purge azure-cli ghc* zulu* llvm* firefox powershell openjdk* dotnet* google* mysql* php* android*
+        sudo -E apt-get -qq autoremove --purge
+        sudo -E apt-get -qq clean
+        sudo timedatectl set-timezone "$TZ"
+        sudo mkdir -p /workdir
+        sudo chown $USER:$GROUPS /workdir
+        PATCH_JSON_INPUT='${{ github.event.inputs.patch_repo }}'
+        echo -e "OPENSSL_3_5=$(echo $PATCH_JSON_INPUT | jq -r ".OPENSSL_3_5")" >> $GITHUB_ENV
+        echo -e "BCM_FULLCONE=$(echo $PATCH_JSON_INPUT | jq -r ".BCM_FULLCONE")" >> $GITHUB_ENV
+        echo -e "TRY_BBR_V3=$(echo $PATCH_JSON_INPUT | jq -r ".TRY_BBR_V3")" >> $GITHUB_ENV
+        echo -e "MAC80211_614=$(echo $PATCH_JSON_INPUT | jq -r ".MAC80211_614")" >> $GITHUB_ENV
+        CONFIG_JSON_INPUT='${{ github.event.inputs.config_repo }}'
+        echo -e "Cache=$(echo $CONFIG_JSON_INPUT | jq -r ".Cache")" >> $GITHUB_ENV
+        echo -e "UPLOAD_RELEASE=$(echo $CONFIG_JSON_INPUT | jq -r ".UPLOAD_RELEASE")" >> $GITHUB_ENV
+        echo -e "ALLKMOD=$(echo $CONFIG_JSON_INPUT | jq -r ".ALLKMOD")" >> $GITHUB_ENV
+        echo "date=$(date +'%m/%d_%Y_%H/%M')" >> $GITHUB_ENV
+        echo "date2=$(date +'%Y/%m %d')" >> $GITHUB_ENV
+        echo "date3=$(date +'%m.%d')" >> $GITHUB_ENV
+
+    - name: ${{ matrix.platform }} sdk download
+        run: |
+          wget ${{ matrix.sdk_url }}
+          file_name=$(echo ${{matrix.sdk_url}} | awk -F/ '{print $NF}')
+          mkdir sdk
+          if [[ $file_name == *.tar.xz ]]; then
+            tar -xJf $file_name -C ./sdk --strip-components=1
+          elif [[ $file_name == *.tar.zst ]]; then
+            tar --zstd -x -f $file_name -C ./sdk --strip-components=1
+          else
+            echo "Unsupported file format: $file_name"
+            exit 1
+          fi
+          cd sdk
+          ls
+
+      - name: ${{ matrix.platform }} feeds configuration packages
+        run: |
+          cd sdk
+          cat > feeds.conf.default << EOF
+          src-git lunatic7 https://github.com/lunatickochiya/actionbased-openwrt-packages.git
+          src-git base https://github.com/openwrt/openwrt.git;openwrt-${{ matrix.sdk_ver }}
+          src-git packages https://github.com/openwrt/packages.git;openwrt-${{ matrix.sdk_ver }}
+          src-git luci https://github.com/openwrt/luci.git;openwrt-${{ matrix.sdk_ver }}
+          src-git routing https://github.com/openwrt/routing.git;openwrt-${{ matrix.sdk_ver }}
+          src-git telephony https://github.com/openwrt/telephony.git;openwrt-${{ matrix.sdk_ver }}
+          EOF
+
+
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+          #--------------------------------------begin_patches------------------------------------------
+          echo "Start applying the patch"
+
+
+          echo "update golang version"
+          rm -rf feeds/packages/lang/golang
+          git clone https://github.com/sbwml/packages_lang_golang -b 24.x feeds/packages/lang/golang
+
+          echo "fixed rust host build error"
+          sed -i 's/--set=llvm\.download-ci-llvm=false/--set=llvm.download-ci-llvm=true/' feeds/packages/lang/rust/Makefile
+          grep -q -- '--ci false \\' feeds/packages/lang/rust/Makefile || sed -i '/x\.py \\/a \        --ci false \\' feeds/packages/lang/rust/Makefile
+
+
+          echo "Patch application completed"
+          #--------------------------------------end_patches--------------------------------------------
+
+          echo "CONFIG_ALL_NONSHARED=n" > .config
+          echo "CONFIG_ALL_KMODS=n" >> .config
+          echo "CONFIG_ALL=n" >> .config
+          echo "CONFIG_AUTOREMOVE=n" >> .config
+          echo "CONFIG_SIGNED_PACKAGES=n" >> .config
+          IFS=',' read -r -a package_array <<< "${{ github.event.inputs.packages }}"
+          for pkg in "${package_array[@]}"; do
+          ./scripts/feeds install "$pkg"
+          echo "CONFIG_PACKAGE_$pkg=m" >> .config
+          for pkg in "${package_array[@]}"; do
+          awk -v pkg="$pkg" '$0 ~ pkg { print }' .config
+          done
+          make defconfig
+
+    - name: ${{ matrix.platform }} download
+        run: |
+          cd sdk
+          make download -j$(nproc)
+          find dl -size -1024c -exec ls -l {} \;
+
+    - name: ${{ matrix.platform }} compile
+        id: compile
+        run: |
+          cd sdk
+          IFS=',' read -r -a package_array <<< "${{ github.event.inputs.packages }}"
+          for package in "${package_array[@]}"; do
+              if [ -d "feeds/lunatic7/$package" ]; then
+                  echo "-----------begin compile $package ---------------"
+                  sleep 10s
+                  make package/feeds/lunatic7/$package/compile -j$(nproc) V=s
+                  echo "-----------compiled $package ---------------"
+                  echo ""
+              fi
+          done
+          make V=s -j$(nproc)
+
+          echo "status=success" >> $GITHUB_OUTPUT
+
+      - name: Organize ${{ matrix.platform }} files
+        id: organize
+        if: steps.compile.outputs.status == 'success'
+        run: |
+          cd sdk
+          mkdir upload
+
+          zip -jr upload/packages_ipk_${{ matrix.platform }}.zip bin/packages/*
+          cd ../
+          touch release.txt
+
+          echo "FIRMWARE=$PWD" >> $GITHUB_ENV
+          echo "status=success" >> $GITHUB_OUTPUT
+
+    - name: Upload firmware to release
+        uses: softprops/action-gh-release@v2
+        if: steps.info.outputs.status == 'success'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ env.date }}
+          body_path: ${{ env.FIRMWARE }}/release.txt
+          files: ${{ env.FIRMWARE }}/upload/*
+
+    - name: 删除工作流
+      uses: Mattraks/delete-workflow-runs@main
+      continue-on-error: true
+      with:
+        retain_days: 6
+        keep_minimum_runs: 9
+
+    - name: 删除旧版本
+      uses: dev-drprasad/delete-older-releases@master
+      continue-on-error: true
+      if: env.UPLOAD_RELEASE == '1' && !cancelled()
+      with:
+        keep_latest: 24
+        delete_tags: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
