@@ -228,7 +228,6 @@ jobs:
                   echo ""
               fi
           done
-          make V=s -j$(nproc)
 
           echo "status=success" >> $GITHUB_OUTPUT
 
