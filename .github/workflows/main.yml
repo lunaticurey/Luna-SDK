@@ -19,55 +19,6 @@ on:
         - 'mpc1917'
         - 'r08'
         - 'fmx1'
-      REPO:
-        description: 'Choose repo'
-        required: true
-        default: 'openwrt-24.10'
-        type: choice
-        options:
-        - 'openwrt-24.10'
-        - 'main'
-      SETIP:
-        description: 'Set ip address'
-        default: '192.168.6.1'
-        required: false
-        type: choice
-        options:
-        - '192.168.6.1'
-        - '192.168.7.1'
-        - '192.168.8.1'
-        - '192.168.9.1'
-        - '192.168.10.1'
-        - '192.168.11.1'
-        - '192.168.12.1'
-        - '192.168.16.1'
-        - '192.168.17.1'
-        - '192.168.18.1'
-        - '192.168.19.1'
-        - '192.168.20.1'
-        - '192.168.22.1'
-        - '192.168.33.1'
-        - '192.168.66.1'
-        - '192.168.67.1'
-        - '192.168.77.1'
-        - '192.168.78.1'
-        - '192.168.87.1'
-        - '192.168.88.1'
-        - '192.168.89.1'
-        - '192.168.96.1'
-        - '192.168.99.1'
-        - '192.168.100.1'
-        - '192.168.110.1'
-        - '192.168.120.1'
-        - '192.168.160.1'
-        - '192.168.166.1'
-        - '192.168.167.1'
-        - '192.168.177.1'
-        - '192.168.188.1'
-        - '172.16.0.1'
-        - '172.18.0.1'
-        - '10.0.0.1'
-        - '10.88.0.1'
       patch_repo:
         description: 'Use json patch repo true(1) or false(0) See ReadME'
         required: true
@@ -86,21 +37,9 @@ env:
   TZ: Asia/Shanghai
 
 jobs:
-  prepare:
-    runs-on: ubuntu-22.04
-    outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
-    strategy:
-      matrix:
-        include:
-        - rockchip: mpc1917
-        - rockchip: tpm312
-        - rockchip: r08
-        - rockchip: fmx1
-
   build:
     runs-on: Ubuntu-22.04
-    name: Build IPK [Luci ${{ matrix.luci_ver }}]
+    name: Build IPK [${{ matrix.platform }}]
     strategy:
       fail-fast: false
       matrix:
@@ -128,19 +67,6 @@ jobs:
     steps:
     - name: 检查
       uses: actions/checkout@main
-
-    - name: 释放Ubuntu磁盘空间
-      uses: endersonmenezes/free-disk-space@v2
-      with:
-        remove_android: true
-        remove_dotnet: true
-        remove_haskell: true
-        remove_tool_cache: true
-        remove_swap: true
-        remove_packages: "azure-cli google-cloud-cli microsoft-edge-stable google-chrome-stable firefox postgresql* temurin-* *llvm* mysql* dotnet-sdk-*"
-        remove_packages_one_command: true
-        remove_folders: "/usr/share/swift /usr/share/miniconda /usr/share/az* /usr/share/glade* /usr/local/lib/node_modules /usr/local/share/chromium /usr/local/share/powershell"
-        testing: false
 
     - name: 初始化环境
       env:
@@ -172,8 +98,8 @@ jobs:
         echo "date3=$(date +'%m.%d')" >> $GITHUB_ENV
 
     - name: ${{ matrix.platform }} sdk download
-        run: |
-          wget ${{ matrix.sdk_url }}
+      run: |
+          wget -q ${{ matrix.sdk_url }}
           file_name=$(echo ${{matrix.sdk_url}} | awk -F/ '{print $NF}')
           mkdir sdk
           if [[ $file_name == *.tar.xz ]]; then
@@ -186,17 +112,22 @@ jobs:
           fi
           cd sdk
           ls
+          git clone https://github.com/lunatickochiya/AP-action package/kochiya
+          cd package/kochiya
+          find . -mindepth 1 ! -path "./package" ! -path "./package/*" -exec rm -rf {} +
+          cd ../..
+          
 
-      - name: ${{ matrix.platform }} feeds configuration packages
-        run: |
+    - name: ${{ matrix.platform }} feeds configuration packages
+      run: |
           cd sdk
           cat > feeds.conf.default << EOF
-          src-git lunatic7 https://github.com/lunatickochiya/actionbased-openwrt-packages.git
           src-git base https://github.com/openwrt/openwrt.git;openwrt-${{ matrix.sdk_ver }}
           src-git packages https://github.com/openwrt/packages.git;openwrt-${{ matrix.sdk_ver }}
           src-git luci https://github.com/openwrt/luci.git;openwrt-${{ matrix.sdk_ver }}
           src-git routing https://github.com/openwrt/routing.git;openwrt-${{ matrix.sdk_ver }}
           src-git telephony https://github.com/openwrt/telephony.git;openwrt-${{ matrix.sdk_ver }}
+          src-git lunatic7 https://github.com/lunatickochiya/actionbased-openwrt-packages.git
           EOF
 
 
@@ -227,20 +158,21 @@ jobs:
           for pkg in "${package_array[@]}"; do
           ./scripts/feeds install "$pkg"
           echo "CONFIG_PACKAGE_$pkg=m" >> .config
+          done
           for pkg in "${package_array[@]}"; do
           awk -v pkg="$pkg" '$0 ~ pkg { print }' .config
           done
           make defconfig
 
     - name: ${{ matrix.platform }} download
-        run: |
+      run: |
           cd sdk
           make download -j$(nproc)
           find dl -size -1024c -exec ls -l {} \;
 
     - name: ${{ matrix.platform }} compile
-        id: compile
-        run: |
+      id: compile
+      run: |
           cd sdk
           IFS=',' read -r -a package_array <<< "${{ github.event.inputs.packages }}"
           for package in "${package_array[@]}"; do
@@ -251,15 +183,21 @@ jobs:
                   echo "-----------compiled $package ---------------"
                   echo ""
               fi
+              if [ -d "package/kochiya/package/kochiya/$package" ]; then
+                  echo "-----------begin compile $package ---------------"
+                  sleep 10s
+                  make package/kochiya/package/kochiya/$package/compile -j$(nproc) V=s
+                  echo "-----------compiled kochiya $package ---------------"
+                  echo ""
+              fi
           done
-          make V=s -j$(nproc)
 
           echo "status=success" >> $GITHUB_OUTPUT
 
-      - name: Organize ${{ matrix.platform }} files
-        id: organize
-        if: steps.compile.outputs.status == 'success'
-        run: |
+    - name: Organize ${{ matrix.platform }} files
+      id: organize
+      if: steps.compile.outputs.status == 'success'
+      run: |
           cd sdk
           mkdir upload
 
@@ -271,12 +209,12 @@ jobs:
           echo "status=success" >> $GITHUB_OUTPUT
 
     - name: Upload firmware to release
-        uses: softprops/action-gh-release@v2
-        if: steps.info.outputs.status == 'success'
-        env:
+      uses: softprops/action-gh-release@v2
+      if: steps.organize.outputs.status == 'success'
+      env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ env.date }}
+      with:
+          tag_name: ${{ env.date }}${{ matrix.platform }} 
           body_path: ${{ env.FIRMWARE }}/release.txt
           files: ${{ env.FIRMWARE }}/upload/*
 
